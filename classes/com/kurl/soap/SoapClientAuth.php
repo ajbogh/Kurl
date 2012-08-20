@@ -2,7 +2,7 @@
 namespace com\kurl\soap;
 
 use com\kurl\soap\streamWrapperHttpAuth;
-use com\kurl\curl\cURL;
+use com\kurl\curl\Kurl;
 
 /**
  *    SoapClientAuth for accessing Web Services protected by HTTP authentication
@@ -82,7 +82,7 @@ use com\kurl\curl\cURL;
 			
 			$this->__last_request_headers = $headers;
 			
-			$response = cURL::doCall($headers,$request,$location,"POST",array(
+			$response = Kurl::doCall($headers,$request,$location,"POST",array(
 					"username"=>$this->Username,
 					"password"=>$this->Password,
 					"cache"=>86400, //1 day cache

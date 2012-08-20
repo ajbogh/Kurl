@@ -1,5 +1,5 @@
 <?php
-namespace com\kurls\oauth;
+namespace com\kurl\oauth;
 
 class OauthSigner {
     //private static final Logger LOG = Logger.getLogger(OauthSigner.class);
