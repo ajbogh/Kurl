@@ -6,14 +6,14 @@
 
 ## Instructions
 
-* Add proper permission for the Apache user to write to classes/com/ics/disney/id/curl/cache directory
+* Add proper permission for the Apache user to write to classes/com/kurl/curl/cache directory
 * Include the autoloader.inc.php file in your main script.
 
     require_once('includes/autoloader.inc.php');
 
 * Include the Kurl.php class by using the PHP 5.3 "use" keyword.
 
-    use com\ics\disney\id\curl\Kurl;
+    use com\kurl\curl\Kurl;
 	
 Additional files are included for Oauth 1.0 signing (com\kurl\oauth\OauthSigner.php)
 and SOAP communication (com\kurl\soap\SoapClientAuth.php and com\kurl\soap\streamWrapperHttpAuth.php)
