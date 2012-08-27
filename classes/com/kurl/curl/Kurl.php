@@ -144,8 +144,20 @@ class Kurl{
 	 */
 	public function setCookies($cookiesArr){
 		//special method for dealing with cookies
-		$cookies = implode('; ',$cookiesArr);
+		$cookies = $this->implode_with_key($cookiesArr, '=','; ');
+		echo $cookies;
 		curl_setopt ($this->ch, CURLOPT_COOKIE, $cookies);
+		print_r($cookies);
+	}
+	/**
+	 * Special implode function used with cookies to preserve keys and values.
+	 */
+	private function implode_with_key($assoc, $inglue = '>', $outglue = ',') {
+	    $return = '';
+	    foreach ($assoc as $tk => $tv) {
+	        $return .= $outglue . $tk . $inglue . $tv;
+	    }
+	    return substr($return, strlen($outglue));
 	}
 	
 	public function GET(){
@@ -210,10 +222,11 @@ class Kurl{
 	 */
 	public function setJSONBody($requestParameters){
 		$this->header[] = 'Content-Type: application/json';
+
 		if(!is_string($requestParameters)){ //convert array to JSON
-			$requestParameters = json_encode($requestParameters);
+			$this->requestParameters = json_encode($requestParameters);
 		}
-		$this->header[] = 'Content-Length: '.strlen($requestParameters);
+		$this->header[] = 'Content-Length: '.strlen($this->requestParameters);
 	}
 	
 	/**
@@ -314,7 +327,6 @@ class Kurl{
 		//special method for dealing with username:password logins
 		if($this->authenticate){
 			curl_setopt($this->ch, CURLOPT_HTTPAUTH, $this->authtype);				
-			
 			curl_setopt($this->ch, CURLOPT_USERPWD, $this->username.":".$this->password); 
 		}
 		
@@ -337,11 +349,21 @@ class Kurl{
 		$headers = get_headers($info["url"]);
 		$info = array_merge($info,array("response_headers"=>$headers));
 		$info = array_merge($info,array("error"=>curl_error($this->ch)));
+
 		if($info['http_code']==401){ // Attempt NTLM Auth only, CURLAUTH_ANY does not work with NTML
-			if($this->authtype!=CURLAUTH_NTLM){
+			if($this->authtype!=CURLAUTH_BASIC && $this->authtype!=CURLAUTH_NTLM){
+				$origAuthType = $this->authtype;
+				$this->authtype = CURLAUTH_BASIC;
+				$res = $this->execute();
+				$info = $res["info"];
+				$result = $res["result"];
+				$this->authtype = $origAuthType;
+			}else if($this->authtype!=CURLAUTH_NTLM){
 				$origAuthType = $this->authtype;
 				$this->authtype = CURLAUTH_NTLM;
-				$result = $this->execute();
+				$res = $this->execute();
+				$info = $res["info"];
+				$result = $res["result"];
 				$this->authtype = $origAuthType;
 			}
 		}else{
