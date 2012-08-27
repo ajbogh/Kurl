@@ -339,7 +339,7 @@ class Kurl{
 		$info = array_merge($info,array("error"=>curl_error($this->ch)));
 		
 		if($info['http_code']==401){ // Attempt NTLM Auth only, CURLAUTH_ANY does not work with NTML
-			if($this->authType!=CURLAUTH_NTLM){
+			if($this->authtype!=CURLAUTH_NTLM){
 				$origAuthType = $this->authtype;
 				$this->authtype = CURLAUTH_NTLM;
 				$result = $this->execute();
