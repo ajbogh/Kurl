@@ -337,14 +337,12 @@ class Kurl{
 		$headers = get_headers($info["url"]);
 		$info = array_merge($info,array("response_headers"=>$headers));
 		$info = array_merge($info,array("error"=>curl_error($this->ch)));
-		
 		if($info['http_code']==401){ // Attempt NTLM Auth only, CURLAUTH_ANY does not work with NTML
 			if($this->authtype!=CURLAUTH_NTLM){
 				$origAuthType = $this->authtype;
 				$this->authtype = CURLAUTH_NTLM;
 				$result = $this->execute();
 				$this->authtype = $origAuthType;
-				return $result;
 			}
 		}else{
 			//try to decode json, fall back to text if it fails
@@ -358,8 +356,8 @@ class Kurl{
 			if($this->cacheResult){
 				$this->writeCache(($result));
 			}
-			return array('result'=>$result,'requestParameters'=>$this->requestParameters,'info'=>$info);
 		}
+		return array('result'=>$result,'requestParameters'=>$this->requestParameters,'info'=>$info);
 	}
 }
 
