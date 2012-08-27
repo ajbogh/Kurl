@@ -313,11 +313,9 @@ class Kurl{
 		
 		//special method for dealing with username:password logins
 		if($this->authenticate){
-			if(isset($optParams["authAny"]) && $optParams["authAny"]){
-				curl_setopt($ch, CURLOPT_HTTPAUTH, $this->authtype);				
-			}
+			curl_setopt($this->ch, CURLOPT_HTTPAUTH, $this->authtype);				
 			
-			curl_setopt($ch, CURLOPT_USERPWD, $optParams["username"].":".$optParams["password"]); 
+			curl_setopt($this->ch, CURLOPT_USERPWD, $this->username.":".$this->password); 
 		}
 		
 		curl_setopt($this->ch, CURLOPT_HTTPHEADER, $this->header);
