@@ -145,9 +145,7 @@ class Kurl{
 	public function setCookies($cookiesArr){
 		//special method for dealing with cookies
 		$cookies = $this->implode_with_key($cookiesArr, '=','; ');
-		echo $cookies;
 		curl_setopt ($this->ch, CURLOPT_COOKIE, $cookies);
-		print_r($cookies);
 	}
 	/**
 	 * Special implode function used with cookies to preserve keys and values.
