@@ -335,8 +335,6 @@ class Kurl{
 		
 		//check for SSL use
 		if(substr($this->url,0,5) == "https" || (substr($this->url,0,2) == "//" && isset($_SERVER['HTTPS']))){
-			curl_setopt($this->ch, CURLOPT_SSL_VERIFYHOST, 0); //ignore all certificate problems
-			curl_setopt($this->ch, CURLOPT_SSL_VERIFYPEER, false);
 			curl_setopt($this->ch, CURLOPT_SSLVERSION, 3);
 		}
 
