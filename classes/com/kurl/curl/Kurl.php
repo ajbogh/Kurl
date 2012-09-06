@@ -114,7 +114,7 @@ class Kurl{
 	private $url, $ch, $username, $password;
 	private $authenticate = false; //whether or not we should authenticate with the server
 	private $authtype; //default auth type of any
-	private $secureSSL = true; //Do not verify SSL. VERY DANGEROUS!
+	private $secureSSL = true; //If false, do not verify SSL. VERY DANGEROUS!
 	
 	/**
 	 * Instance methods below
