@@ -43,6 +43,7 @@ class Kurl{
 	 * 				"jsonPOST"=>true, //informs the system that the input $requestParameters should be treated as a JSON blob.
 	 * 				"cookies"=>array("name=value"),
 	 * 				"authAny"=>true - for username and password logins, basic auth is default, this adds authany to the login request. 
+	 * 				"secureSSL"=>true - set to false to ignore peer and host verification.
 	 * 			]
 	 * @return Object
 	 */
@@ -69,6 +70,11 @@ class Kurl{
 		//special method for dealing with cookies
 		if(isset($optParams["cookies"])){
 			$curl->setCookies($optParams["cookies"]);
+		}
+		
+		//special method for dealing with cookies
+		if(isset($optParams["secureSSL"])){
+			$curl->useSecureSSL($optParams["secureSSL"]);
 		}
 		
 		//check method
@@ -108,6 +114,7 @@ class Kurl{
 	private $url, $ch, $username, $password;
 	private $authenticate = false; //whether or not we should authenticate with the server
 	private $authtype; //default auth type of any
+	private $secureSSL = true; //Do not verify SSL. VERY DANGEROUS!
 	
 	/**
 	 * Instance methods below
@@ -135,6 +142,10 @@ class Kurl{
 	
 	public function setHeader($header=array()){
 		$this->header = array_merge($this->header,$header);
+	}
+	
+	public function useSecureSSL($val){
+		$this->secureSSL = $val;
 	}
 	
 	/**
@@ -335,6 +346,10 @@ class Kurl{
 		
 		//check for SSL use
 		if(substr($this->url,0,5) == "https" || (substr($this->url,0,2) == "//" && isset($_SERVER['HTTPS']))){
+			if($this->secureSSL === false){
+				curl_setopt($this->ch, CURLOPT_SSL_VERIFYHOST, 0); //ignore all certificate problems
+				curl_setopt($this->ch, CURLOPT_SSL_VERIFYPEER, false);
+			}
 			curl_setopt($this->ch, CURLOPT_SSLVERSION, 3);
 		}
 
