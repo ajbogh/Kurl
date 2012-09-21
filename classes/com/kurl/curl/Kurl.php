@@ -44,6 +44,8 @@ class Kurl{
 	 * 				"cookies"=>array("name=value"),
 	 * 				"authAny"=>true - for username and password logins, basic auth is default, this adds authany to the login request. 
 	 * 				"secureSSL"=>true - set to false to ignore peer and host verification.
+	 *				"returnRequestParams"=>true - set to false to return an empty array of echoing the params
+	 *										This is useful for security purposes if you don't want params to be send back to the user.
 	 * 			]
 	 * @return Object
 	 */
@@ -72,9 +74,14 @@ class Kurl{
 			$curl->setCookies($optParams["cookies"]);
 		}
 		
-		//special method for dealing with cookies
+		//special method for dealing with SSL
 		if(isset($optParams["secureSSL"])){
 			$curl->useSecureSSL($optParams["secureSSL"]);
+		}
+		
+		//special method for returning blank request params array
+		if(isset($optParams["returnRequestParams"])){
+			$curl->returnRequestParams = ($optParams["returnRequestParams"]);
 		}
 		
 		//check method
@@ -115,6 +122,7 @@ class Kurl{
 	private $authenticate = false; //whether or not we should authenticate with the server
 	private $authtype; //default auth type of any
 	private $secureSSL = true; //If false, do not verify SSL. VERY DANGEROUS!
+	public $returnRequestParams = true; //returns the request parameter in the response.
 	
 	/**
 	 * Instance methods below
@@ -357,7 +365,7 @@ class Kurl{
 		
 		$result = curl_exec($this->ch);
 		$info = curl_getinfo($this->ch);
-		$headers = get_headers($info["url"]);
+		$headers = @get_headers($info["url"]); //this breaks PHP without the @ sign if there's no network.
 		$info = array_merge($info,array("response_headers"=>$headers));
 		$info = array_merge($info,array("error"=>curl_error($this->ch)));
 
@@ -390,7 +398,10 @@ class Kurl{
 				$this->writeCache(($result));
 			}
 		}
-		return array('result'=>$result,'requestParameters'=>$this->requestParameters,'info'=>$info);
+		return array('result'=>$result,
+			'requestParameters'=>($this->returnRequestParams?$this->requestParameters:array()),
+			'info'=>$info)
+		;
 	}
 }
 
