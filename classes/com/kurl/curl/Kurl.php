@@ -37,6 +37,7 @@ class Kurl{
 	 * 				"password"=>"go",
 	 * 				"dataType"=>"json", "text", //optional, assumes JSON and falls back to text/html 
 	 * 				"cache"=>86400, //integer, number of seconds
+	 * 				"clearCache"=>true //forces the cache to clear on a GET request
 	 * 				"jsonPOST"=>true, //informs the system that the input $requestParameters should be treated as a JSON blob.
 	 * 				"cookies"=>array("name=value"),
 	 * 				"authAny"=>true - for username and password logins, basic auth is default, this adds authany to the login request. 
@@ -52,6 +53,9 @@ class Kurl{
 		//check file cache
 		if(isset($optParams["cache"])){
 			$curl->setupCache($optParams["cache"]);
+		}
+		if(isset($optParams["clearCache"]) && filter_var($optParams["clearCache"],FILTER_VALIDATE_BOOLEAN)){
+			$curl->forceClearCache = true;
 		}
 		
 		$curl->setHeader($header);
@@ -113,6 +117,7 @@ class Kurl{
 	private $cacheDir; //the cache directory (defaults to "the_directory_of_this_script/cache")
 	private $cacheTime = 0; //number of seconds to store cache
 	private $cacheResult = false; //whether or not we should use the cache
+	private $forceClearCache = false; //forces the cache to clear for GET requests.
 	private $header = array(); 
 	private $requestParameters;
 	private $url, $ch, $username, $password;
@@ -177,6 +182,8 @@ class Kurl{
 	
 	public function GET(){
 		$this->method = "GET";
+		if($this->forceClearCache){ $this->clearCache(); }
+		
 		if(is_array($this->requestParameters) && count($this->requestParameters)>0){
 			$this->url = $this->url.'?'.http_build_query($this->requestParameters);
 		}else if(!is_array($this->requestParameters) && !is_null($this->requestParameters)){
