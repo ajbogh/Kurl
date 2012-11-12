@@ -57,6 +57,9 @@ class Kurl{
 		if(isset($optParams["clearCache"]) && filter_var($optParams["clearCache"],FILTER_VALIDATE_BOOLEAN)){
 			$curl->forceClearCache = true;
 		}
+		if(isset($optParams["noOp"]) && filter_var($optParams["noOp"],FILTER_VALIDATE_BOOLEAN)){
+			$curl->noOp = true;
+		}
 		
 		$curl->setHeader($header);
 		
@@ -117,7 +120,8 @@ class Kurl{
 	private $cacheDir; //the cache directory (defaults to "the_directory_of_this_script/cache")
 	private $cacheTime = 0; //number of seconds to store cache
 	private $cacheResult = false; //whether or not we should use the cache
-	private $forceClearCache = false; //forces the cache to clear for GET requests.
+	public $forceClearCache = false; //forces the cache to clear for GET requests.
+	public $noOp = false; //Do not perform the curl request, just the setup (useful for clearing cache)
 	private $header = array(); 
 	private $requestParameters;
 	private $url, $ch, $username, $password;
@@ -182,7 +186,6 @@ class Kurl{
 	
 	public function GET(){
 		$this->method = "GET";
-		if($this->forceClearCache){ $this->clearCache(); }
 		
 		if(is_array($this->requestParameters) && count($this->requestParameters)>0){
 			$this->url = $this->url.'?'.http_build_query($this->requestParameters);
@@ -192,13 +195,11 @@ class Kurl{
 		return $this->execute();
 	}
 	public function POST(){
-		$this->clearCache();
 		$this->method = "POST";
 		$this->setupPOSTFields("POST");
 		return $this->execute();
 	}
 	public function PUT(){
-		$this->clearCache();
 		$this->method = "PUT";
 		//handles a true PUT
 		curl_setopt($this->ch, CURLOPT_CUSTOMREQUEST, "PUT");
@@ -230,7 +231,7 @@ class Kurl{
 		return $this->execute();
 	}
 	public function DELETE(){
-		$this->clearCache();
+		$this->method = "DELETE";
 		$this->method = "DELETE";
 		$this->setupPOSTFields("DELETE");
 		return $this->execute();
@@ -342,7 +343,7 @@ class Kurl{
 	 * clearCache forces the cache to be cleared for the filename.
 	 */
 	public function clearCache(){
-		if($this->fn != ""){
+		if($this->fn != "" && is_file($this->fn)){
 			unlink($this->fn);
 		}
 	}
@@ -355,6 +356,16 @@ class Kurl{
 	public function execute(){
 		//cache filename
 		$this->fn = $this->cacheDir . sha1(str_replace($this->rep, "", $this->url.json_encode($this->header).json_encode($this->requestParameters))) . "-".$this->cacheTime.".txt";
+		switch($this->method){
+			case "POST":
+			case "PUT":
+			case "DELETE":
+				$this->clearCache();
+		}
+		if($this->forceClearCache){ $this->clearCache(); }
+		if($this->noOp){
+			return;
+		}
 		if($this->cacheResult){
 			$this->clearCacheByTime();
 			$cache = $this->getCache();
@@ -362,6 +373,7 @@ class Kurl{
 				return $cache;
 			}
 		}
+		
 		
 		curl_setopt($this->ch, CURLOPT_URL, $this->url);
 		
