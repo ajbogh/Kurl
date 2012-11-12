@@ -1,9 +1,6 @@
 <?php
 namespace com\kurl\curl;
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 /**
  * Kurl handles all cURL calls for REST-based systems.
  * 
@@ -44,8 +41,8 @@ class Kurl{
 	 * 				"cookies"=>array("name=value"),
 	 * 				"authAny"=>true - for username and password logins, basic auth is default, this adds authany to the login request. 
 	 * 				"secureSSL"=>true - set to false to ignore peer and host verification.
-	 *				"returnRequestParams"=>true - set to false to return an empty array of echoing the params
-	 *										This is useful for security purposes if you don't want params to be send back to the user.
+	 * 				"returnRequestParams"=>true - set to false to return an empty array instead of echoing the params
+	 * 											This is useful for security purposes if you don't want params to be sent back to the user.
 	 * 			]
 	 * @return Object
 	 */
@@ -54,7 +51,7 @@ class Kurl{
 		
 		//check file cache
 		if(isset($optParams["cache"])){
-			$curl->setupCache();
+			$curl->setupCache($optParams["cache"]);
 		}
 		
 		$curl->setHeader($header);
@@ -79,7 +76,7 @@ class Kurl{
 			$curl->useSecureSSL($optParams["secureSSL"]);
 		}
 		
-		//special method for returning blank request params array
+		//special method for dealing with SSL
 		if(isset($optParams["returnRequestParams"])){
 			$curl->returnRequestParams = ($optParams["returnRequestParams"]);
 		}
@@ -122,6 +119,7 @@ class Kurl{
 	private $authenticate = false; //whether or not we should authenticate with the server
 	private $authtype; //default auth type of any
 	private $secureSSL = true; //If false, do not verify SSL. VERY DANGEROUS!
+	private $method = "GET";
 	public $returnRequestParams = true; //returns the request parameter in the response.
 	
 	/**
@@ -178,6 +176,7 @@ class Kurl{
 	}
 	
 	public function GET(){
+		$this->method = "GET";
 		if(is_array($this->requestParameters) && count($this->requestParameters)>0){
 			$this->url = $this->url.'?'.http_build_query($this->requestParameters);
 		}else if(!is_array($this->requestParameters) && !is_null($this->requestParameters)){
@@ -186,36 +185,51 @@ class Kurl{
 		return $this->execute();
 	}
 	public function POST(){
+		$this->clearCache();
+		$this->method = "POST";
 		$this->setupPOSTFields("POST");
 		return $this->execute();
 	}
 	public function PUT(){
+		$this->clearCache();
+		$this->method = "PUT";
 		//handles a true PUT
 		curl_setopt($this->ch, CURLOPT_CUSTOMREQUEST, "PUT");
-		$fp = tmpfile(); //fopen('php://temp/maxmemory:256000', 'w');
+		//curl_setopt($this->ch, CURLOPT_PUT, true);
+		//$fp = tmpfile(); //fopen('php://temp/maxmemory:256000', 'w');
+		
+		$body = "";
 		if(is_array($this->requestParameters)){
-			fwrite($fp, json_encode($this->requestParameters));
+			$body = json_encode($this->requestParameters);
 		}else{
-			fwrite($fp, $this->requestParameters);
+			$body = $this->requestParameters;
 		}
-		rewind($fp);
+		curl_setopt($this->ch, CURLOPT_POSTFIELDS,$body);
+		//fwrite($fp, $body);
+		//rewind($fp);
 		//fseek($fp, 0); 
+		//curl_setopt($this->ch, CURLOPT_INFILE, $fp);
+		//curl_setopt($this->ch, CURLOPT_INFILESIZE, strlen($body));
 		// Let curl know that we are sending an entity body
-		curl_setopt($this->ch, CURLOPT_UPLOAD, true);
+		//curl_setopt($this->ch, CURLOPT_UPLOAD, true);
 		// Let curl know that we are using a chunked transfer encoding
-		//$header[] = 'Transfer-Encoding: chunked';
+		//$this->header[] = 'Transfer-Encoding: chunked';
 		//curl_setopt($ch, CURLOPT_HTTPHEADER, array('Transfer-Encoding: chunked'));
 		// Use a callback to provide curl with data to transmit from the stream
-		curl_setopt($this->ch, CURLOPT_READFUNCTION, function($ch, $fd, $length) use ($fp) {
-		    return fread($fp, $length);
-		});
+		//curl_setopt($this->ch, CURLOPT_READFUNCTION, function($ch, $fd, $length) use ($fp) {
+		//    return fread($fp, $length);
+		//});
+
 		return $this->execute();
 	}
 	public function DELETE(){
+		$this->clearCache();
+		$this->method = "DELETE";
 		$this->setupPOSTFields("DELETE");
 		return $this->execute();
 	}
 	public function HEAD(){
+		$this->method = "HEAD";
 		curl_setopt($this->ch, CURLOPT_NOBODY, true);
 		return $this->execute();
 	}
@@ -248,36 +262,45 @@ class Kurl{
 	
 	/**
 	 * private caching functions.
+	 * @param $cacheSeconds - Number of seconds to cache.
 	 */
-	private function setupCache(){
-		//check file cache
-		$this->clearCache($this->cacheDir);
-		
-		$this->fn = $this->cacheDir . md5(str_replace($rep, "", $url)) . "-".$optParams["cache"].".txt";
+	private function setupCache($cacheSeconds){
+		$this->cacheResult = true;
+		$this->cacheTime = $cacheSeconds;
+	} //end setupCache function
+	
+	public function setCustomCacheDir($dir){
+		$this->cacheDir = $dir;
+	}
+	/**
+	 * getCache either returns the cache result or false if there is no cache.
+	 * @return Cache result or false
+	 */
+	public function getCache(){
 		$exists = file_exists($this->fn);
-	    if($exists && (time()-@filemtime($this->fn)) < $optParams["cache"]){
+	    if($exists && (time()-@filemtime($this->fn)) < $this->cacheTime){
 	    	$string = file_get_contents($this->fn);
 			$result = json_decode($string);
 			if(is_null($result)){
 				$result = $string;
 			}
 			$info = array(
-	            "url"=>$url,
-	            "http_code"=>302
+	            "url"=>$this->url,
+	            "http_code"=>200
 			);
-	        return array('result'=>$result,'requestParameters'=>$requestParameters,'info'=>$info);
+	        return array('result'=>$result,
+	        			'requestParameters'=>($this->returnRequestParams?$this->requestParameters:array()),
+	        			'info'=>$info);
+	    }else{
+	    	return false;
 	    }
-	} //end setupCache function
-	
-	public function setCustomCacheDir($dir){
-		$this->cacheDir = $dir;
 	}
 	
 	private function writeCache($result){
 		//write the data to the cache
 		@unlink($this->fn);
 		if($result){
-	    	$fh = fopen($fn, 'w');
+	    	$fh = fopen($this->fn, 'w');
 			$string = json_encode($result);
 			if(is_null($string)){ //result isn't JSON
 				$string = $result;
@@ -287,51 +310,35 @@ class Kurl{
 		}
 	} //end writeCache function
 	
-	public function clearCache(){
-		$cachefile = $this->cacheDir.'cachecheck.txt';
-		
-		if(!is_file($cachefile)){
-			$fh = fopen($cachefile, 'w');
-			$string = "1";
-			fwrite($fh, $string);
-			fclose($fh);
-		}else{ //read file and check if a deletion needs to occur
-			$string = file_get_contents($cachefile);
-			if(intval($string) >= 25){ //run deletions every 25 executions
-				if ($handle = opendir($dir)) {
-				    //Loop over the directory.
-				    while (false !== ($file = readdir($handle))) {
-				    	if($file != $cachefile){
-					        $filenameArr = explode("-",$file,2); //$filenameArr should be like 604800.txt
-					        if(count($filenameArr) == 2){ //make sure it's only 2 array positions
-					        	//get seconds
-					        	$seconds = substr($filenameArr[1],0,strrpos($filenameArr[1],'.'));
+	public function clearCacheByTime(){
+		if ($handle = opendir($this->cacheDir)) {
+			$dir = $this->cacheDir;
+		    //Loop over the directory.
+		    while (false !== ($file = readdir($handle))) {
+		        $filenameArr = explode("-",$file,2); //$filenameArr should be like 604800.txt
+		        if(count($filenameArr) == 2){ //make sure it's only 2 array positions
+		        	//get seconds
+		        	$seconds = substr($filenameArr[1],0,strrpos($filenameArr[1],'.'));
 
-								//delete the file if it's old
-								if(filemtime($dir.$file) <= time()-intval($seconds)){
-						           unlink($dir.$file);
-						        }
-					        }
-						}
-				    }
-				
-				    closedir($handle);
-				}
-				
-				//reset the cache file
-				$fh = fopen($cachefile, 'w');
-				$string = "1";
-				fwrite($fh, $string);
-				fclose($fh);
-			}else{
-				//update the cache file
-				$fh = fopen($cachefile, 'w');
-				$string++; //increment the cache number
-				fwrite($fh, $string);
-				fclose($fh);
-			}
+					//delete the file if it's old
+					if(filemtime($dir.$file) <= time()-intval($seconds)){
+			           unlink($dir.$file);
+			        }
+		        }
+		    }
+		
+		    closedir($handle);
 		}
-	} //end clearCache instance function
+	} //end clearCacheByTime instance function
+	
+	/**
+	 * clearCache forces the cache to be cleared for the filename.
+	 */
+	public function clearCache(){
+		if($this->fn != ""){
+			unlink($this->fn);
+		}
+	}
 	
 	/**
 	 * Executes the configured cURL call.
@@ -339,6 +346,16 @@ class Kurl{
 	 * @return an array of the result, original request parameters, and the header info.
 	 */
 	public function execute(){
+		//cache filename
+		$this->fn = $this->cacheDir . sha1(str_replace($this->rep, "", $this->url.json_encode($this->header).json_encode($this->requestParameters))) . "-".$this->cacheTime.".txt";
+		if($this->cacheResult){
+			$this->clearCacheByTime();
+			$cache = $this->getCache();
+			if($cache !== false){
+				return $cache;
+			}
+		}
+		
 		curl_setopt($this->ch, CURLOPT_URL, $this->url);
 		
 		//special method for dealing with username:password logins
@@ -350,7 +367,10 @@ class Kurl{
 		curl_setopt($this->ch, CURLOPT_HTTPHEADER, $this->header);
 		
 		curl_setopt($this->ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($this->ch, CURLOPT_VERBOSE, true); //include the full header in the response
 		curl_setopt($this->ch, CURLOPT_FOLLOWLOCATION, true);
+		curl_setopt($this->ch, CURLINFO_HEADER_OUT, true); //get full info parameters
+		curl_setopt($this->ch, CURLOPT_HEADER, true); //used to get the header information
 		
 		//check for SSL use
 		if(substr($this->url,0,5) == "https" || (substr($this->url,0,2) == "//" && isset($_SERVER['HTTPS']))){
@@ -361,12 +381,25 @@ class Kurl{
 			curl_setopt($this->ch, CURLOPT_SSLVERSION, 3);
 		}
 
-		curl_setopt($this->ch, CURLINFO_HEADER_OUT, true);
+		$response = curl_exec($this->ch);
 		
-		$result = curl_exec($this->ch);
+		//get the header size
+		$header_size = curl_getinfo($this->ch, CURLINFO_HEADER_SIZE);
+		//get the header
+		$headerOut = substr($response, 0, $header_size);
+		$headerOut = array_filter(explode("\n",str_replace("\r\n","\n",$headerOut)));
+		$headerOut = array_splice($headerOut, 1);
+		$header = array();
+		foreach($headerOut as $headerItem){
+			$headerItem = explode(":",$headerItem,2);
+			if(isset($headerItem[1])){
+				$header[$headerItem[0]] = ltrim($headerItem[1]);
+			}
+		}
+		//get the body
+		$result = substr($response, $header_size);
+		
 		$info = curl_getinfo($this->ch);
-		$headers = @get_headers($info["url"]); //this breaks PHP without the @ sign if there's no network.
-		$info = array_merge($info,array("response_headers"=>$headers));
 		$info = array_merge($info,array("error"=>curl_error($this->ch)));
 
 		if($info['http_code']==401){ // Attempt NTLM Auth only, CURLAUTH_ANY does not work with NTML
@@ -385,23 +418,25 @@ class Kurl{
 				$result = $res["result"];
 				$this->authtype = $origAuthType;
 			}
-		}else{
-			//try to decode json, fall back to text if it fails
-			$origResult = $result;
-			$result = @json_decode($result);
-			if(is_null($result)){
-				$result = $origResult;
-			}
-			
-			//write the data to the cache
-			if($this->cacheResult){
-				$this->writeCache(($result));
-			}
 		}
-		return array('result'=>$result,
+		//try to decode json, fall back to text if it fails
+		$origResult = $result;
+		$result = @json_decode($result);
+		if(is_null($result)){
+			$result = $origResult;
+		}
+		
+		//write the data to the cache
+		if($this->cacheResult){
+			$this->writeCache($result);
+		}
+		
+		$returnArray = array('result'=>$result,
 			'requestParameters'=>($this->returnRequestParams?$this->requestParameters:array()),
-			'info'=>$info)
-		;
+			'info'=>$info,
+			'header'=>$header
+		);
+		return $returnArray;
 	}
 }
 
